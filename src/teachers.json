@@ -1,0 +1,7 @@
+{
+  "teachers": {
+    "teacher": {
+      "password": "pbkdf2_sha256$600000$6d2f4a6d8f9c1b7e$6fe305bebae87de7328bdb108e542f1b47b4f8bf00ae2acda67f9d75c914eba4"
+    }
+  }
+}

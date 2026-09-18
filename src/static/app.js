@@ -2,7 +2,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitiesList = document.getElementById("activities-list");
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
+  const signupButton = document.getElementById("signup-button");
   const messageDiv = document.getElementById("message");
+  const loginButton = document.getElementById("login-button");
+  const logoutButton = document.getElementById("logout-button");
+  const loginDialog = document.getElementById("login-dialog");
+  const loginForm = document.getElementById("login-form");
+  const cancelLoginButton = document.getElementById("cancel-login-button");
+  const loggedInState = document.getElementById("logged-in-state");
+  const teacherName = document.getElementById("teacher-name");
+  let loggedIn = false;
+
+  function updateAuthState(username = "") {
+    loggedIn = Boolean(username);
+    loginButton.classList.toggle("hidden", loggedIn);
+    loggedInState.classList.toggle("hidden", !loggedIn);
+    teacherName.textContent = username;
+    signupButton.disabled = !loggedIn;
+    signupButton.title = loggedIn ? "" : "Teacher login required";
+    document.querySelectorAll(".delete-btn").forEach((button) => {
+      button.classList.toggle("hidden", !loggedIn);
+    });
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -30,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.participants
                   .map(
                     (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="participant-email">${email}</span><button class="delete-btn ${loggedIn ? "" : "hidden"}" data-activity="${name}" data-email="${email}">Remove</button></li>`
                   )
                   .join("")}
               </ul>
@@ -67,6 +88,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function fetchCurrentTeacher() {
+    try {
+      const response = await fetch("/auth/me");
+      if (response.ok) {
+        const teacher = await response.json();
+        updateAuthState(teacher.username);
+      } else {
+        updateAuthState();
+      }
+    } catch (error) {
+      updateAuthState();
+      console.error("Error checking teacher login:", error);
+    }
+  }
+
   // Handle unregister functionality
   async function handleUnregister(event) {
     const button = event.target;
@@ -94,6 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
+        if (response.status === 401) {
+          updateAuthState();
+        }
       }
 
       messageDiv.classList.remove("hidden");
@@ -155,6 +194,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  loginButton.addEventListener("click", () => loginDialog.showModal());
+  cancelLoginButton.addEventListener("click", () => loginDialog.close());
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const response = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      updateAuthState(result.username);
+      loginForm.reset();
+      loginDialog.close();
+      fetchActivities();
+    } else {
+      messageDiv.textContent = result.detail || "Unable to log in";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+    }
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    await fetch("/auth/logout", { method: "POST" });
+    updateAuthState();
+    fetchActivities();
+  });
+
   // Initialize app
+  updateAuthState();
+  fetchCurrentTeacher();
   fetchActivities();
 });
